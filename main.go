@@ -32,9 +32,17 @@ func run(ctx context.Context, w io.Writer, args []string) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	limiter, err := buildLimiter(cfg)
+	limiter, closeStore, err := buildLimiter(ctx, cfg)
 	if err != nil {
 		return err
+	}
+	if closeStore != nil {
+		// Deferred so it runs after Shutdown has drained in-flight requestss.
+		defer func() {
+			if err := closeStore(); err != nil {
+				log.Printf("closing store: %v", err)
+			}
+		}()
 	}
 
 	reverseProxy := newReverseProxy(cfg.AppPort)

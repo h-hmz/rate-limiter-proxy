@@ -38,6 +38,8 @@ type Config struct {
 
 	Key       string // ip | apikey
 	KeyHeader string // apikey only
+
+	FailOpen bool
 }
 
 // LoadConfig reads and validates every RL_* variable, collecting all errors
@@ -71,6 +73,7 @@ func LoadConfig() (Config, error) {
 		RedisPassword: os.Getenv("RL_REDIS_PASSWORD"),
 		Key:           envOr("RL_KEY", keyIP),
 		KeyHeader:     envOr("RL_KEY_HEADER", defaultKeyHeader),
+		FailOpen:      true,
 	}
 
 	if raw := os.Getenv("RL_RATE"); raw == "" {
@@ -121,6 +124,14 @@ func LoadConfig() (Config, error) {
 
 	if cfg.Key != keyIP && cfg.Key != keyAPIKey {
 		fail("RL_KEY: %q must be %q or %q", cfg.Key, keyIP, keyAPIKey)
+	}
+
+	if raw := os.Getenv("RL_FAIL_OPEN"); raw != "" {
+		if v, err := strconv.ParseBool(raw); err != nil {
+			fail("RL_FAIL_OPEN: %q must be a boolean", raw)
+		} else {
+			cfg.FailOpen = v
+		}
 	}
 
 	return cfg, errors.Join(errs...)

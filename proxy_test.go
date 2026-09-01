@@ -27,8 +27,11 @@ func startBackend(t *testing.T, h http.HandlerFunc) int {
 
 func startProxy(t *testing.T, cfg Config) *httptest.Server {
 	t.Helper()
-	lim, err := buildLimiter(cfg)
+	lim, closeStore, err := buildLimiter(t.Context(), cfg)
 	require.NoError(t, err)
+	if closeStore != nil {
+		t.Cleanup(func() { _ = closeStore() })
+	}
 	reverseProxy := newReverseProxy(cfg.AppPort)
 
 	extractor := buildExtractor(cfg)
