@@ -19,13 +19,15 @@ const (
 	keyIP     = "ip"
 	keyAPIKey = "apikey"
 
-	defaultListenPort = 15001
-	defaultKeyHeader  = "X-API-Key"
+	defaultListenPort  = 15001
+	defaultMetricsPort = 15090
+	defaultKeyHeader   = "X-API-Key"
 )
 
 type Config struct {
-	AppPort    int // forward target: 127.0.0.1:AppPort
-	ListenPort int
+	AppPort     int // forward target: 127.0.0.1:AppPort
+	ListenPort  int
+	MetricsPort int // /metrics and /healthz listener, kept off the proxy port so scrapes and probes are never rate limited
 
 	Algorithm string
 	Rate      float64       // tokenbucket: tokens/second; fixedwindow: requests per window
@@ -67,6 +69,7 @@ func LoadConfig() (Config, error) {
 	cfg := Config{
 		AppPort:       parsePort("RL_APP_PORT", true, 0),
 		ListenPort:    parsePort("RL_LISTEN_PORT", false, defaultListenPort),
+		MetricsPort:   parsePort("RL_METRICS_PORT", false, defaultMetricsPort),
 		Algorithm:     os.Getenv("RL_ALGORITHM"),
 		Store:         envOr("RL_STORE", storeMemory),
 		RedisAddr:     os.Getenv("RL_REDIS_ADDR"),
@@ -132,6 +135,20 @@ func LoadConfig() (Config, error) {
 		} else {
 			cfg.FailOpen = v
 		}
+	}
+
+	// All three ports live in one network namespace, since the proxy runs as a
+	// sidecar beside the app. Any collision is fatal: two processes cannot bind
+	// the same port, and an iptables REDIRECT pointed at the app's own port
+	// would never reach the proxy.
+	if cfg.ListenPort == cfg.AppPort {
+		fail("RL_LISTEN_PORT and RL_APP_PORT must differ, both are %d", cfg.ListenPort)
+	}
+	if cfg.MetricsPort == cfg.AppPort {
+		fail("RL_METRICS_PORT and RL_APP_PORT must differ, both are %d", cfg.MetricsPort)
+	}
+	if cfg.MetricsPort == cfg.ListenPort {
+		fail("RL_METRICS_PORT and RL_LISTEN_PORT must differ, both are %d", cfg.MetricsPort)
 	}
 
 	return cfg, errors.Join(errs...)
