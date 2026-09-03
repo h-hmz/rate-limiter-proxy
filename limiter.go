@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -191,7 +191,7 @@ func probeLoop(ctx context.Context, lim *failOpenLimiter, probe func(ctx context
 		poll := unhealthyPoll
 		if err == nil {
 			if down {
-				log.Printf("store is reachable again, rate limiting restored")
+				slog.Info("store reachable, rate limiting restored")
 			}
 			down = false
 			fails = 0
@@ -201,7 +201,7 @@ func probeLoop(ctx context.Context, lim *failOpenLimiter, probe func(ctx context
 			fails++
 			if fails >= unhealthyThreshold {
 				if !down {
-					log.Printf("store is unreachable, failing open: %v", err)
+					slog.Error("store unreachable, failing open", "err", err)
 				}
 				down = true
 				lim.isOpen.Store(true)

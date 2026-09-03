@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,12 +17,14 @@ import (
 func main() {
 	ctx := context.Background()
 	if err := run(ctx, os.Stdout, os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		slog.Error("exiting", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, w io.Writer, args []string) error {
+func run(ctx context.Context, w io.Writer, _ []string) error {
+	setupLogging(w)
+
 	// Listen for both SIGINT (Ctrl+C) and SIGTERM (Docker/Kubernetes)
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -37,10 +39,10 @@ func run(ctx context.Context, w io.Writer, args []string) error {
 		return err
 	}
 	if closeStore != nil {
-		// Deferred so it runs after Shutdown has drained in-flight requestss.
+		// Deferred so it runs after Shutdown has drained in-flight requests.
 		defer func() {
 			if err := closeStore(); err != nil {
-				log.Printf("closing store: %v", err)
+				slog.Warn("closing store failed", "err", err)
 			}
 		}()
 	}
@@ -61,7 +63,14 @@ func run(ctx context.Context, w io.Writer, args []string) error {
 	srvErr := make(chan error, 1)
 
 	go func() {
-		log.Printf("listening on %s", proxySrv.Addr)
+		slog.Info("listening",
+			"addr", proxySrv.Addr,
+			"app_port", cfg.AppPort,
+			"algorithm", cfg.Algorithm,
+			"store", cfg.Store,
+			"key", cfg.Key,
+			"fail_open", cfg.FailOpen,
+		)
 		if err := proxySrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			srvErr <- err
 		}
@@ -71,7 +80,7 @@ func run(ctx context.Context, w io.Writer, args []string) error {
 	case err := <-srvErr:
 		return fmt.Errorf("server startup failed: %w", err)
 	case <-ctx.Done():
-		log.Println("Interrupt signal received, initiating graceful shutdown...")
+		slog.Info("shutdown signal received")
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
