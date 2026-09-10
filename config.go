@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -42,6 +43,8 @@ type Config struct {
 	KeyHeader string // apikey only
 
 	FailOpen bool
+
+	BypassPaths []string // paths that skip the limiter but are still proxied to the app
 }
 
 // LoadConfig reads and validates every RL_* variable, collecting all errors
@@ -127,6 +130,19 @@ func LoadConfig() (Config, error) {
 
 	if cfg.Key != keyIP && cfg.Key != keyAPIKey {
 		fail("RL_KEY: %q must be %q or %q", cfg.Key, keyIP, keyAPIKey)
+	}
+
+	for p := range strings.SplitSeq(os.Getenv("RL_BYPASS_PATHS"), ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		// A path that does not start with "/" can never equal r.URL.Path, reject at boot.
+		if !strings.HasPrefix(p, "/") {
+			fail("RL_BYPASS_PATHS: %q must start with %q", p, "/")
+			continue
+		}
+		cfg.BypassPaths = append(cfg.BypassPaths, p)
 	}
 
 	if raw := os.Getenv("RL_FAIL_OPEN"); raw != "" {

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"testing"
 
-	rlmiddleware "github.com/h-hmz/rate-limiter/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,12 +31,9 @@ func startProxy(t *testing.T, cfg Config) *httptest.Server {
 	if closeStore != nil {
 		t.Cleanup(func() { _ = closeStore() })
 	}
-	reverseProxy := newReverseProxy(cfg.AppPort)
 
-	extractor := buildExtractor(cfg)
-	reverseProxyHandler := rlmiddleware.HttpMiddleware(lim, extractor)(reverseProxy)
+	srv := httptest.NewServer(newProxyHandler(cfg, lim))
 
-	srv := httptest.NewServer(reverseProxyHandler)
 	t.Cleanup(srv.Close)
 	return srv
 }

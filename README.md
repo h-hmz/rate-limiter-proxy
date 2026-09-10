@@ -48,6 +48,7 @@ Rate limit responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `Re
 | `RL_REDIS_PASSWORD` | | Redis password, if any. |
 | `RL_KEY` | `ip` | What quota is counted against: `ip` or `apikey`. |
 | `RL_KEY_HEADER` | `X-API-Key` | Header read when `RL_KEY=apikey`. |
+| `RL_BYPASS_PATHS` | | Comma-separated exact paths that skip the limiter but are still proxied. See below. |
 | `RL_FAIL_OPEN` | `true` | What an unusable store means. See below. |
 | `RL_LOG_FORMAT` | `json` | `json` or `text`. |
 
@@ -56,6 +57,12 @@ Rate limit responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `Re
 `RL_KEY=ip` reads `X-Forwarded-For` and rejects requests that lack it. **This assumes the proxy sits behind an ingress that overwrites the header**, so clients cannot forge it. Do not expose this proxy directly to the internet in `ip` mode.
 
 `RL_KEY=apikey` reads whatever header `RL_KEY_HEADER` names.
+
+### Bypassing the limiter for health checks
+
+`RL_BYPASS_PATHS=/healthz,/readyz` sends those exact paths straight to the app, skipping the limiter but still proxying the request.
+
+This matters when the proxy is injected as a sidecar and traffic is captured with an iptables REDIRECT. A kubelet probe aimed at the app's port is captured like any other inbound request, and it carries no `X-Forwarded-For`, so in `ip` mode it is rejected with 400 and the pod eventually gets killed.
 
 ## Admin endpoints
 

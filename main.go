@@ -18,7 +18,6 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	rlmetrics "github.com/h-hmz/rate-limiter/metrics"
-	rlmiddleware "github.com/h-hmz/rate-limiter/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -54,6 +53,7 @@ func run(ctx context.Context, w io.Writer, _ []string) error {
 		"store", cfg.Store,
 		"key", cfg.Key,
 		"fail_open", cfg.FailOpen,
+		"bypass_paths", cfg.BypassPaths,
 	)
 
 	exporter, err := promexporter.New()
@@ -88,15 +88,9 @@ func run(ctx context.Context, w io.Writer, _ []string) error {
 		return fmt.Errorf("instrumenting limiter: %w", err)
 	}
 
-	reverseProxy := newReverseProxy(cfg.AppPort)
-	extractor := buildExtractor(cfg)
-
 	proxySrv := &http.Server{
-		Addr: fmt.Sprintf(":%d", cfg.ListenPort),
-		Handler: rlmiddleware.HttpMiddleware(
-			instrumented,
-			extractor,
-		)(reverseProxy),
+		Addr:              fmt.Sprintf(":%d", cfg.ListenPort),
+		Handler:           newProxyHandler(cfg, instrumented),
 		ReadHeaderTimeout: serverReadHeaderTimeout,
 		IdleTimeout:       serverIdleTimeout,
 	}
