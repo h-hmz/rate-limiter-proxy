@@ -1,0 +1,16 @@
+.git
+.github
+.gitignore
+.dockerignore
+Dockerfile
+
+*.exe
+*.exe~
+*.test
+*.out
+coverage.*
+*.coverprofile
+
+*.md
+.vscode/
+.idea/
