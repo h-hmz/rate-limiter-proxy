@@ -3,7 +3,7 @@ module github.com/h-hmz/rate-limiter-proxy
 go 1.26.3
 
 require (
-	github.com/h-hmz/rate-limiter v0.0.0-20260708115816-f6a856fbfdea
+	github.com/h-hmz/rate-limiter v0.1.0
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.22.0
